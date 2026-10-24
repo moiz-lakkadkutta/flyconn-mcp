@@ -1,0 +1,62 @@
+[project]
+name = "flyconn-mcp"
+version = "0.1.0.dev0"
+description = "MCP server for in-silico experiments on public Drosophila connectomes, with controls and provenance, via flyconn."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+authors = [{ name = "flyconn contributors" }]
+keywords = ["mcp", "connectome", "drosophila", "neuroscience", "flywire", "malecns"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = [
+  "flyconn[sim]>=0.4,<0.5",
+  "mcp>=2.3,<3",
+]
+
+[project.scripts]
+flyconn-mcp = "flyconn_mcp.server:main"
+
+[project.urls]
+Repository = "https://github.com/moiz-lakkadkutta/flyconn-mcp"
+flyconn = "https://github.com/moiz-lakkadkutta/flyconn"
+
+[dependency-groups]
+dev = [
+  "anyio>=4.9",
+  "pyright>=1.1.414",
+  "pytest>=9",
+  "ruff>=0.17",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.7,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "N", "SIM", "RUF"]
+
+[tool.pyright]
+include = ["src"]
+pythonVersion = "3.11"
+typeCheckingMode = "strict"
+reportMissingTypeStubs = false
+reportUnknownMemberType = false
+reportUnknownArgumentType = false
+reportUnknownVariableType = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+  "golden: uses cached real data (slow; not run in default CI)",
+]
