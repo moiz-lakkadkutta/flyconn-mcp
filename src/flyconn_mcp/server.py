@@ -8,8 +8,9 @@ from mcp.server.mcpserver import MCPServer
 from mcp.types import ToolAnnotations
 from pydantic import Field
 
-from flyconn_mcp import __version__, queries
+from flyconn_mcp import __version__, paths, queries
 from flyconn_mcp.datasets import DatasetCatalogue, catalogue
+from flyconn_mcp.paths import PathSearch
 from flyconn_mcp.queries import Direction, NeuronSearch, Partners
 
 INSTRUCTIONS = """\
@@ -81,6 +82,26 @@ def neuron_partners(
     """Top upstream and/or downstream partner cell types of a cell type, with synapse counts,
     share of input/output, and signed synapse counts from predicted neurotransmitters."""
     return queries.neuron_partners(dataset, cell_type, direction, min_weight, top_n)
+
+
+@server.tool(annotations=_QUERY)
+def find_paths(
+    source_type: Annotated[str, Field(description="Exact source cell type, e.g. 'LB3c'.")],
+    target_type: Annotated[str, Field(description="Exact target cell type, e.g. 'MN9'.")],
+    max_hops: Annotated[int, Field(ge=1, le=paths.MAX_HOPS)] = 3,
+    min_weight: Annotated[
+        int, Field(ge=1, description="Base threshold; stability also checks 2x and 4x.")
+    ] = 5,
+    dataset: Annotated[str, Field(description="Dataset ref from list_datasets.")] = (
+        DEFAULT_DATASET
+    ),
+    top_n: Annotated[int, Field(ge=1, le=50)] = 10,
+    seed: Annotated[int, Field(description="Seed for NT-sign sampling.")] = 0,
+) -> PathSearch:
+    """Paths from one cell type to another, summarized by cell-type sequence: strength,
+    net sign from predicted neurotransmitters, and how stable each path is across synapse
+    thresholds and NT-sign samples."""
+    return paths.find_paths(dataset, source_type, target_type, max_hops, min_weight, top_n, seed)
 
 
 def main() -> None:

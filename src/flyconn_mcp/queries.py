@@ -46,18 +46,35 @@ def open_store(ref: str) -> Store:
     return Store.open(ref)
 
 
-def _glob_to_like(pattern: str) -> str:
+def glob_to_like(pattern: str) -> str:
     escaped = pattern.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     return escaped.replace("*", "%").replace("?", "_")
 
 
-def _rows(store: Store, sql: str, params: Sequence[Any]) -> list[dict[str, Any]]:
+def rows(store: Store, sql: str, params: Sequence[Any]) -> list[dict[str, Any]]:
     return [{str(k): v for k, v in r.items()} for r in store.query(sql, params).to_dict("records")]
 
 
-def _str(v: Any) -> str | None:
+def text(v: Any) -> str | None:
     """A text cell as str, with SQL NULL / pandas NaN as None."""
     return None if v is None or (isinstance(v, float) and math.isnan(v)) else str(v)
+
+
+def unknown_type(store: Store, cell_type: str) -> ToolError:
+    """A ToolError for a cell type with no neurons, naming close matches."""
+    close = [
+        str(r["cell_type"])
+        for r in rows(
+            store,
+            "SELECT DISTINCT cell_type FROM neurons WHERE cell_type ILIKE ? ORDER BY 1 LIMIT 10",
+            [f"%{glob_to_like(cell_type)}%"],
+        )
+    ]
+    hint = f" Close matches: {', '.join(close)}." if close else ""
+    return ToolError(
+        f"No neurons of cell_type {cell_type!r} in {store.ref} (exact, case-sensitive)."
+        f"{hint} Use find_neurons to search by pattern."
+    )
 
 
 def _sign_sql(column: str) -> str:
@@ -93,18 +110,18 @@ def find_neurons(
         params: list[object] = []
         if cell_type:
             clauses.append("cell_type ILIKE ? ESCAPE '\\'")
-            params.append(_glob_to_like(cell_type))
+            params.append(glob_to_like(cell_type))
         if super_class:
             clauses.append("super_class = ?")
             params.append(super_class)
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-        by_class = _rows(
+        by_class = rows(
             store,
             f"SELECT coalesce(super_class, 'unknown') AS sc, count(*) AS n FROM neurons {where} "
             "GROUP BY 1 ORDER BY n DESC, sc",
             params,
         )
-        types = _rows(
+        types = rows(
             store,
             f"SELECT coalesce(cell_type, '{UNTYPED}') AS cell_type, count(*) AS n, "
             "mode(super_class) AS super_class, mode(nt_pred) AS nt_pred "
@@ -115,8 +132,8 @@ def find_neurons(
         if n:
             note = "cell_type matching is a case-insensitive glob (* and ?)."
         else:
-            known = _rows(store, "SELECT DISTINCT super_class AS sc FROM neurons ORDER BY 1", [])
-            names = ", ".join(s for r in known if (s := _str(r["sc"])))
+            known = rows(store, "SELECT DISTINCT super_class AS sc FROM neurons ORDER BY 1", [])
+            names = ", ".join(s for r in known if (s := text(r["sc"])))
             note = (
                 "No neurons matched. cell_type is a case-insensitive glob such as 'GNG23*'; "
                 f"super_class must be exact, one of: {names}."
@@ -129,8 +146,8 @@ def find_neurons(
                 TypeCount(
                     cell_type=str(r["cell_type"]),
                     n_neurons=int(r["n"]),
-                    super_class=_str(r["super_class"]),
-                    nt_pred=_str(r["nt_pred"]),
+                    super_class=text(r["super_class"]),
+                    nt_pred=text(r["nt_pred"]),
                 )
                 for r in types[:top_n]
             ],
@@ -180,7 +197,7 @@ def _partner_set(
     # Downstream: the query type is presynaptic, so its NT signs the edge.
     q_side, p_side = ("post", "pre") if upstream else ("pre", "post")
     signer = "p" if upstream else "q"
-    rows = _rows(
+    found = rows(
         store,
         f"SELECT coalesce(p.cell_type, '{UNTYPED}') AS cell_type, "
         f"count(DISTINCT e.{p_side}) AS n, sum(e.weight) AS w, "
@@ -191,10 +208,10 @@ def _partner_set(
         "WHERE q.cell_type = ? AND e.weight >= ? GROUP BY 1 ORDER BY w DESC, cell_type",
         [cell_type, min_weight],
     )
-    total = sum(int(r["w"]) for r in rows)
+    total = sum(int(r["w"]) for r in found)
     return PartnerSet(
         total_synapses=total,
-        n_partner_types=len(rows),
+        n_partner_types=len(found),
         partners=[
             Partner(
                 cell_type=str(r["cell_type"]),
@@ -202,9 +219,9 @@ def _partner_set(
                 synapses=int(r["w"]),
                 fraction=round(int(r["w"]) / total, 4),
                 signed_synapses=int(r["sw"]),
-                nt_pred=_str(r["nt"]),
+                nt_pred=text(r["nt"]),
             )
-            for r in rows[:top_n]
+            for r in found[:top_n]
         ],
     )
 
@@ -214,35 +231,21 @@ def neuron_partners(
 ) -> Partners:
     store = open_store(dataset)
     try:
-        (q,) = _rows(
+        (q,) = rows(
             store,
             "SELECT count(*) AS n, mode(nt_pred) AS nt FROM neurons WHERE cell_type = ?",
             [cell_type],
         )
         n = int(q["n"])
         if n == 0:
-            close = [
-                str(r["cell_type"])
-                for r in _rows(
-                    store,
-                    "SELECT DISTINCT cell_type FROM neurons WHERE cell_type ILIKE ? "
-                    "ORDER BY 1 LIMIT 10",
-                    [f"%{_glob_to_like(cell_type)}%"],
-                )
-            ]
-            hint = f" Close matches: {', '.join(close)}." if close else ""
-            msg = (
-                f"No neurons of cell_type {cell_type!r} in {dataset} (exact, case-sensitive)."
-                f"{hint} Use find_neurons to search by pattern."
-            )
-            raise ToolError(msg)
+            raise unknown_type(store, cell_type)
         prov = provenance(
             store, cell_type=cell_type, direction=direction, min_weight=min_weight, top_n=top_n
         )
         prov.min_weight = min_weight
         prov.sign_policy = SIGN_POLICY
         return Partners(
-            query=QueryType(cell_type=cell_type, n_neurons=n, nt_pred=_str(q["nt"])),
+            query=QueryType(cell_type=cell_type, n_neurons=n, nt_pred=text(q["nt"])),
             upstream=(
                 _partner_set(store, cell_type, True, min_weight, top_n)
                 if direction in ("upstream", "both")
