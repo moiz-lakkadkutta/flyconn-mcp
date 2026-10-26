@@ -15,17 +15,6 @@ from flyconn_mcp.server import server
 pytestmark = pytest.mark.anyio
 
 
-@pytest.fixture
-def anyio_backend() -> str:
-    return "asyncio"
-
-
-@pytest.fixture
-def cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    monkeypatch.setenv("FLYCONN_CACHE", str(tmp_path))
-    return tmp_path
-
-
 def _fake_store(ref: str, level: str) -> None:
     root = store_dir(get_dataset(ref))
     root.mkdir(parents=True)
