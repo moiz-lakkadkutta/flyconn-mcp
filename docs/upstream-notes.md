@@ -22,3 +22,14 @@ changed in flyconn; raise each as an issue or fix in a flyconn milestone.
    against the exact store layout.
 5. **The Shiu 2024 neuron sets** (`tests/fixtures/shiu_2024_neuron_sets.json`) are not in the
    package. They are needed for the second demo clip (PLAN.md).
+6. **Path analyses need the full matrix.** `find_paths` / `path_stability` take a
+   `ConnectivityMatrix`; building one for MaleCNS peaks at ~2.5 GB. flyconn-mcp prunes in SQL
+   first (`flyconn_mcp/paths.py`: a recursive CTE keeps the neurons with
+   d(source) + d(target) ≤ max_hops), which is exact for simple paths. It would fit well as a
+   `ConnectivityMatrix.path_subgraph(store, sources, targets, max_hops, min_weight)`.
+7. **`sample_signs` depends on row order and count.** The same seed gives different draws on
+   a subgraph than on the full matrix, so `sign_stability` from a subgraph matches a
+   full-matrix run statistically, not bit for bit. Seeding per neuron id would make them
+   identical.
+8. **`path_stability` has no `max_paths`.** It calls `find_paths` with the 1,000,000 default.
+   flyconn-mcp bounds the work by capping the subgraph size instead.

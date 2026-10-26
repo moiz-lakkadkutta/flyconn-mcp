@@ -2,6 +2,22 @@
 
 Resume here. Scope and decisions: `PLAN.md`.
 
+## 2026-10-26: find_paths, golden tests, PR #1
+
+- Repo is public: github.com/moiz-lakkadkutta/flyconn-mcp. PR #1 is `m1-queries` → `main`.
+  PR #2 (`m1-paths`) is stacked on it. The owner approved opening PRs; merging still needs
+  their yes.
+- **CI has never run.** Actions is enabled and the `ci` workflow is active, but GitHub created
+  no Actions check suite for any push or PR (only Vercel's). Total runs: 0. Possibly an
+  account-level Actions/billing setting; the owner needs to look.
+- `find_paths`: SQL prunes to the neurons within max_hops of both ends, then flyconn's
+  `path_stability` runs on that subgraph. It matches the full matrix exactly (golden), at ~1/3
+  of the RAM. Defaults: max_hops 3 (cap 4), min_weight 5, thresholds 1×/2×/4×, 100 NT samples,
+  seed 0. It refuses subgraphs over 20,000 neurons with an error saying what to change.
+- Golden tests: `uv run pytest -m golden` (needs cached malecns@1.0; ~5 s, 2.5 GB peak from
+  the full-matrix comparison). 3 pass.
+- Next: `compare_across_datasets` with the MaleCNS ↔ FlyWire 783 resolver, then M2.
+
 ## 2026-10-24: M0 done, M1 started
 
 Branches: `m0-scaffold` (1 commit) → `m1-queries` (on top). Nothing pushed; no GitHub repo
@@ -29,10 +45,10 @@ yet. Each needs the owner's yes.
   (see `docs/upstream-notes.md`).
 
 **Next (M1 remainder)**
-1. `find_paths` (flyconn `find_paths` + path stability), kept small on MaleCNS.
+1. ~~`find_paths`~~ (done 2026-10-26).
 2. `compare_across_datasets` with a MaleCNS ↔ FlyWire 783 name resolver (MN9 = CB0701,
    GNG232 = CB0616), using the `fafb_783_cell_type` column in MaleCNS neurons.
-3. Golden-marked tests on cached MaleCNS (numbers above) under `pytest -m golden`.
+3. ~~Golden-marked tests on cached MaleCNS~~ (done 2026-10-26).
 Then M2: experiments as background jobs (no full-dataset sims until then).
 
 **Open for the owner**

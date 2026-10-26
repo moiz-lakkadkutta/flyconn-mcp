@@ -28,6 +28,7 @@ downloads data itself. Pull a dataset with `flyconn data pull malecns@1.0 --leve
 | `list_datasets` | Registered datasets: licence, citation, download size per level, locally cached level |
 | `find_neurons` | Neurons by cell-type glob (`GNG23*`, case-insensitive) and/or super class: counts per super class, top types with predicted NT |
 | `neuron_partners` | Top upstream / downstream partner types of a cell type: synapses, share of input/output, signed synapses; `min_weight` threshold (default 5) |
+| `find_paths` | Paths (≤4 hops) from one cell type to another, grouped by type sequence: strength (product of input fractions), net sign, and stability across synapse thresholds (1×, 2×, 4× `min_weight`) and 100 NT-sign samples |
 
 Every query result includes `provenance`: dataset@version, the store's converter and build
 date, flyconn and flyconn-mcp versions, every parameter, the threshold and the sign policy.
@@ -49,6 +50,13 @@ downstream: 2,073 synapses, 53 partner types
 `neuron_partners(cell_type="MN9", direction="upstream")`: 6,085 input synapses from 74
 types; the top one is DNge062 (556 synapses, +). Each query took ≤0.1 s, and the server's peak
 RSS was about 340 MB.
+
+`find_paths(source_type="GNG232", target_type="MN9")` (≤3 hops, min_weight 5): 1,401 neuron
+paths in 445 type paths, about 1.8 s and 780 MB peak RSS. The top type paths are
+GNG232 › DNge080 › MN9 (+, sign stability 0.95) and GNG232 › GNG108 › MN9 (+, 0.96). The query
+prunes in SQL to the ~160 neurons that can lie on such paths and runs flyconn's
+`path_stability` on that subgraph. A golden test checks that it finds exactly the full matrix's
+paths and strengths, where building the full matrix would peak at ~2.5 GB.
 
 ## Honesty
 

@@ -63,8 +63,17 @@ KNOWN_EDGES = [(0, 3, 10), (1, 3, 6), (2, 3, 8), (5, 3, 2), (3, 4, 7)]
 def store(cache: Path) -> Path:
     neurons, edges = synthetic_connectome(n_neurons=40, n_edges=200, seed=21)
     ids = neurons["neuron_id"].to_numpy()
+    nt_cols = [c for c in neurons.columns if c.startswith("nt_p_")]
     for pos, (cell_type, super_class, nt) in KNOWN_TYPES.items():
-        neurons.loc[pos, ["cell_type", "super_class", "nt_pred"]] = [cell_type, super_class, nt]
+        neurons.loc[pos, ["cell_type", "super_class", "nt_pred", "nt_conf"]] = [
+            cell_type,
+            super_class,
+            nt,
+            1.0,
+        ]
+        # One-hot NT probabilities so sampled signs are deterministic for the known types.
+        neurons.loc[pos, nt_cols] = 0.0
+        neurons.loc[pos, f"nt_p_{nt}"] = 1.0
     known_ids = set(ids[list(KNOWN_TYPES)])
     background = edges[~edges["pre"].isin(known_ids) & ~edges["post"].isin(known_ids)]
     placed = pd.DataFrame(
