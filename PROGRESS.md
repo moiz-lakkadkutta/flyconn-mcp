@@ -20,8 +20,7 @@ Resume here. Scope and decisions: `PLAN.md`.
 
 ## 2026-10-24: M0 done, M1 started
 
-Branches: `m0-scaffold` (1 commit) → `m1-queries` (on top). Nothing pushed; no GitHub repo
-yet. Each needs the owner's yes.
+Branches: `m0-scaffold` (1 commit) → `m1-queries` (on top).
 
 **Works**
 - uv project, src layout, Apache-2.0, ruff + strict pyright + pytest, `scripts/check.sh`,
@@ -53,4 +52,5 @@ Then M2: experiments as background jobs (no full-dataset sims until then).
 
 **Open for the owner**
 - Land `docs/flyconn-adr-draft.md` as ADR-0013 in flyconn once M14 is committed.
-- Create the GitHub repo and push (outward-facing; not done).
+- ~~Create the GitHub repo and push~~ (done by the owner 2026-10-25).
+- Find out why GitHub Actions never runs (see the 2026-10-26 entry).
